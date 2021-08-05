@@ -3,16 +3,20 @@ import os
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.cluster import KMeans
 from sklearn import metrics
-from yellowbrick.cluster import KElbowVisualizer
+from yellowbrick.cluster import KElbowVisualizer, SilhouetteVisualizer
 
 # directories
 BASE_DIR = os.path.dirname(os.path.abspath('__file__'))
 DATA_DIR = os.path.join(BASE_DIR, 'feature_eng', 'data', 'ft_df.csv')
+
 # MODEL_DIR = os.path.join(BASE_DIR, 'heroku', 'models')
 
 df = pd.read_csv(DATA_DIR)
-
 df.drop(columns = 'customer_id', inplace = True)
+
+
+
+## Hyperparameter fine tuning
 
 # function to test metrics in k clusters
 def clustering_algorithm(n_clusters, dataset):
@@ -29,25 +33,33 @@ for i in range(2,10):
     print(f'{i} cluster(s)')
     clustering_algorithm(i, df)
 
-# Instantiate the clustering model and visualizer
-model = KMeans(n_init=10, max_iter=300)
-visualizer = KElbowVisualizer(model, k=(4,12))
-
 # scaling dataset
 values = df.values
 values = MinMaxScaler().fit_transform(values)
+
+# elbow method visualizer
+model = KMeans(n_init=10, max_iter=300)
+visualizer = KElbowVisualizer(model, k=(4,12))
+
+visualizer.fit(values)        # Fit the data to the visualizer
+visualizer.show()        # Finalize and render the figure
+
+# silhouette visualizer
+model = KMeans(n_clusters = 6, n_init=10, max_iter=300)
+visualizer = SilhouetteVisualizer(model, colors='yellowbrick')
 
 visualizer.fit(values)        # Fit the data to the visualizer
 visualizer.show()        # Finalize and render the figure
 
 
+
+## Model Training
 # algorithm
-kmeans = KMeans(n_clusters = 7, n_init = 10, max_iter = 300)
+kmeans = KMeans(n_clusters = 6, n_init = 10, max_iter = 300)
 y_pred = kmeans.fit_predict(values)
 labels = kmeans.labels_
 
 df['cluster'] = labels
-
 
 # summary
 description = df.groupby("cluster")
