@@ -76,6 +76,9 @@ df = df[df.unit_price > 0]
 df_pos = df[df.quantity > 0]
 df_neg = df[df.quantity < 0]
 
+# removing countries not identified
+df2 = df2[~df2['country'].isin( ['European Community', 'Unspecified' ] ) ]
+
 
 
 ## feature eng
