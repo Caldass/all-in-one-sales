@@ -14,6 +14,15 @@ df = pd.read_csv(DATA_DIR, encoding = "ISO-8859-1")
 # drop unidentified column
 df.drop(columns = 'Unnamed: 8', inplace = True)
 
+# turning columns from camel case to snake case
+snakecase = lambda x:inflection.underscore(x)
+cols_new = list(map(snakecase, df.columns))
+df.columns = cols_new
+
+
+
+## Data Description
+
 # data types and df shape
 df.dtypes
 df.shape
@@ -22,24 +31,34 @@ df.shape
 df.isna().sum()
 
 # droping nas since there's no useful way to fill them
-df = df.dropna()
-df.isna().sum()
+df_missing = df[df.customer_id.isna()]
+df_not_missing = df[df.customer_id.notna()]
+
+# create reference
+df_backup = pd.DataFrame( df_missing['invoice_no'].drop_duplicates() )
+df_backup['customer_id'] = np.arange( 19000, 19000+len( df_backup ), 1)
+
+# merge original with reference dataframe
+df = pd.merge( df, df_backup, on='invoice_no', how='left' )
+
+# coalesce 
+df['customer_id'] = df['customer_id_x'].combine_first( df['customer_id_y'] )
+
+# drop extra columns
+df.drop( columns=['customer_id_x', 'customer_id_y'] , inplace = True)
+df.head()
 
 # data types
 df.dtypes
 df.shape
-
-# turning columns from camel case to snake case
-snakecase = lambda x:inflection.underscore(x)
-cols_new = list(map(snakecase, df.columns))
-df.columns = cols_new
 
 # changing dtypes
 df['invoice_date'] = pd.to_datetime(df.invoice_date)
 df['customer_id'] = df.customer_id.astype(int)
 
 
-## descriptive statistics
+
+## Descriptive Statistics
 num_attrs = df.select_dtypes(include = ['int64', 'int32', 'float64'])
 cat_attrs = df.select_dtypes(exclude = ['int64', 'int32', 'float64', 'datetime64[ns]'])
 
@@ -63,9 +82,6 @@ stats
 
 ## Filtering variables
 
-# contains "POST"
-# df[cat_attrs.stock_code.apply(lambda x: bool(re.search('[^0-9]+', x)) )]
-
 # filtering out stock code containing strings
 df = df[~cat_attrs.stock_code.apply(lambda x: bool(re.search('^[a-zA-Z]+$', x)) )]
 
@@ -73,44 +89,101 @@ df = df[~cat_attrs.stock_code.apply(lambda x: bool(re.search('^[a-zA-Z]+$', x)) 
 df = df[df.unit_price > 0]
 
 # creating revenue and return dataframe
-df_pos = df[df.quantity > 0]
-df_neg = df[df.quantity < 0]
+df_purchase = df[df.quantity > 0]
+df_returns = df[df.quantity < 0]
 
-# removing countries not identified
-df2 = df2[~df2['country'].isin( ['European Community', 'Unspecified' ] ) ]
+# removing countries not identified and description column
+df = df[~df['country'].isin( ['European Community', 'Unspecified' ] ) ]
+df.drop(columns = 'description', inplace = True)
 
 
 
-## feature eng
+## Feature Engineering
 
 # distinct client df
 df_cli = df[['customer_id']].drop_duplicates(ignore_index = True)
 
+ # avg recency days
+df_aux = df_purchase[['customer_id', 'invoice_date']].drop_duplicates().sort_values( ['customer_id', 'invoice_date'], ascending=['False', 'False'] )
+df_aux['next_customer_id'] = df_aux['customer_id'].shift() # next customer
+df_aux['previous_date'] = df_aux['invoice_date'].shift() # next invoice date
+df_aux['avg_recency_days'] = df_aux.apply( lambda x: ( x['invoice_date'] - x['previous_date'] ).days if x['customer_id'] == x['next_customer_id'] else np.nan, axis=1 )
+df_aux = df_aux.drop( ['invoice_date', 'next_customer_id', 'previous_date'], axis=1 ).dropna()
+
+df_avg_recency_days = df_aux.groupby( 'customer_id' ).mean().reset_index()
+
 
 # basket_size
-mix = df_pos.groupby('customer_id').stock_code.nunique().reset_index()
-mix.columns = ['customer_id', 'mix']
+df_aux = ( df_purchase[['customer_id', 'invoice_no', 'quantity']].groupby( 'customer_id' )
+                                                                            .agg( n_purchase=( 'invoice_no', 'nunique'),
+                                                                                  n_products=( 'quantity', 'sum' ) )
+                                                                            .reset_index() )
+df_aux['avg_basket_size'] = df_aux['n_products'] / df_aux['n_purchase']
+basket_size = df_aux[['customer_id','avg_basket_size']]
+
+
+# unique basket size
+df_aux = ( df_purchase[['customer_id', 'invoice_no', 'stock_code']].groupby( 'customer_id' )
+                                                                            .agg( n_purchase=( 'invoice_no', 'nunique'),
+                                                                                   n_products=( 'stock_code', 'nunique' ) )
+                                                                            .reset_index() )
+
+df_aux['avg_unique_basket_size'] = df_aux['n_products'] / df_aux['n_purchase']
+unique_basket_size = df_aux[['customer_id', 'avg_unique_basket_size']]
+
 
 # revenue and returned amount
-df_pos['gross_revenue'] = df_pos.unit_price * df_pos.quantity
-df_neg['returned_revenue'] = df_neg.unit_price * abs(df_neg.quantity)
-gross_revenue = df_pos.groupby('customer_id').sum()['gross_revenue'].reset_index()
-returned_revenue = df_neg.groupby('customer_id').sum()['returned_revenue'].reset_index()
+df_purchase['gross_revenue'] = df_purchase.unit_price * df_purchase.quantity
+df_returns['returned_revenue'] = df_returns.unit_price * abs(df_returns.quantity)
+gross_revenue = df_purchase.groupby('customer_id').sum()['gross_revenue'].reset_index()
+returned_revenue = df_returns.groupby('customer_id').sum()['returned_revenue'].reset_index()
+
 
 # last_purchase (days)
-l_purchase = df_pos.groupby('customer_id').max()['invoice_date'].reset_index() 
-l_purchase['last_purchase'] = (df_pos.invoice_date.max() - l_purchase.invoice_date).dt.days
+l_purchase = df_purchase.groupby('customer_id').max()['invoice_date'].reset_index() 
+l_purchase['last_purchase'] = (df_purchase.invoice_date.max() - l_purchase.invoice_date).dt.days
 
-# frequency
-frequency = df_pos.groupby('customer_id').invoice_no.nunique().reset_index()
-frequency.columns = ['customer_id', 'frequency']
+
+# number of orders
+orders = df_purchase.groupby('customer_id').invoice_no.nunique().reset_index()
+orders.columns = ['customer_id', 'orders']
+
+
+# Qt of products purchases
+qt_products = (df_purchase[['customer_id', 'stock_code']].groupby( 'customer_id' ).count()
+                                                           .reset_index()
+                                                           .rename( columns={'stock_code': 'qt_products'} ) )
+
+
+# total items purchases
+total_items = (df_purchase[['customer_id', 'quantity']].groupby( 'customer_id' ).sum()
+                                                           .reset_index()
+                                                           .rename( columns={'quantity': 'qt_items'} ) )
+
+
+# frequency of purchases
+ df_aux = ( df_purchase[['customer_id', 'invoice_no', 'invoice_date']].drop_duplicates()
+                                                             .groupby( 'customer_id')
+                                                             .agg( max_ = ( 'invoice_date', 'max' ), 
+                                                                   min_ = ( 'invoice_date', 'min' ),
+                                                                   days_= ( 'invoice_date', lambda x: ( ( x.max() - x.min() ).days ) + 1 ),
+                                                                   buy_ = ( 'invoice_no', 'count' ) ) ).reset_index()
+
+df_aux['frequency'] = df_aux[['buy_', 'days_']].apply( lambda x: x['buy_'] / x['days_'] if  x['days_'] != 0 else 0, axis=1 )
+freq = df_aux[['customer_id', 'frequency']]
+
 
 # merging into client df and creating features
 df_cli = pd.merge(df_cli, gross_revenue, on = 'customer_id', how = 'left')
 df_cli = pd.merge(df_cli, returned_revenue, on = 'customer_id', how = 'left')
-df_cli = pd.merge(df_cli, mix, on = 'customer_id', how = 'left')
+df_cli = pd.merge(df_cli, basket_size, on = 'customer_id', how = 'left')
+df_cli = pd.merge(df_cli, unique_basket_size, on = 'customer_id', how = 'left')
 df_cli['last_purchase'] = pd.merge(df_cli, l_purchase, on = 'customer_id', how = 'left')['last_purchase']
-df_cli = pd.merge(df_cli, frequency, on = 'customer_id', how = 'left')
+df_cli = pd.merge(df_cli, orders, on = 'customer_id', how = 'left')
+df_ref = pd.merge( df_cli, qt_products, on='customer_id', how='left' )
+df_ref = pd.merge( df_cli, total_items, on='customer_id', how='left' )
+df_ref = pd.merge( df_cli, freq, on='customer_id', how='left' )
+df_cli = pd.merge(df_cli, df_avg_recency_days, on = 'customer_id', how = 'left')
 df_cli['average_ticket'] = df_cli.gross_revenue/df_cli.frequency
 
 # checking and filling nas in new df with 0

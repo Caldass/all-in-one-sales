@@ -18,9 +18,6 @@ df = pd.read_csv(DATA_DIR)
 df.drop(columns = ['customer_id', 'mix'], inplace = True)
 
 
-df.head()
-
-
 
 ## Hyperparameter fine tuning
 
@@ -51,6 +48,7 @@ visualizer.show()        # Finalize and render the figure
 
 
 ## Model Training
+
 # algorithm
 kmeans = KMeans(n_clusters = 3, n_init = 10, max_iter = 300)
 y_pred = kmeans.fit_predict(values)
@@ -63,7 +61,7 @@ df['cluster'] = labels
 ## Visualization Inspection
 
 # silhouette visualizer
-visualizer = SilhouetteVisualizer(model, colors='yellowbrick')
+visualizer = SilhouetteVisualizer(kmeans, colors='yellowbrick')
 
 visualizer.fit(values)        # Fit the data to the visualizer
 visualizer.show()        # Finalize and render the figure
@@ -87,7 +85,7 @@ plt.show()
 
 
 ## Cluster Profile
-# summary
+
 description = df.groupby("cluster")
 n_clients = description.size()
 description = description.mean()
