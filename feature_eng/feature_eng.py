@@ -30,7 +30,6 @@ df.shape
 # check na
 df.isna().sum()
 
-# droping nas since there's no useful way to fill them
 df_missing = df[df.customer_id.isna()]
 df_not_missing = df[df.customer_id.notna()]
 
@@ -112,6 +111,8 @@ df_aux = df_aux.drop( ['invoice_date', 'next_customer_id', 'previous_date'], axi
 
 df_avg_recency_days = df_aux.groupby( 'customer_id' ).mean().reset_index()
 
+df_cli = pd.merge(df_cli, df_avg_recency_days, on = 'customer_id', how = 'left')
+
 
 # basket_size
 df_aux = ( df_purchase[['customer_id', 'invoice_no', 'quantity']].groupby( 'customer_id' )
@@ -120,6 +121,8 @@ df_aux = ( df_purchase[['customer_id', 'invoice_no', 'quantity']].groupby( 'cust
                                                                             .reset_index() )
 df_aux['avg_basket_size'] = df_aux['n_products'] / df_aux['n_purchase']
 basket_size = df_aux[['customer_id','avg_basket_size']]
+
+df_cli = pd.merge(df_cli, basket_size, on = 'customer_id', how = 'left')
 
 
 # unique basket size
@@ -131,6 +134,8 @@ df_aux = ( df_purchase[['customer_id', 'invoice_no', 'stock_code']].groupby( 'cu
 df_aux['avg_unique_basket_size'] = df_aux['n_products'] / df_aux['n_purchase']
 unique_basket_size = df_aux[['customer_id', 'avg_unique_basket_size']]
 
+df_cli = pd.merge(df_cli, unique_basket_size, on = 'customer_id', how = 'left')
+
 
 # revenue and returned amount
 df_purchase['gross_revenue'] = df_purchase.unit_price * df_purchase.quantity
@@ -138,27 +143,36 @@ df_returns['returned_revenue'] = df_returns.unit_price * abs(df_returns.quantity
 gross_revenue = df_purchase.groupby('customer_id').sum()['gross_revenue'].reset_index()
 returned_revenue = df_returns.groupby('customer_id').sum()['returned_revenue'].reset_index()
 
+df_cli = pd.merge(df_cli, gross_revenue, on = 'customer_id', how = 'left')
+df_cli = pd.merge(df_cli, returned_revenue, on = 'customer_id', how = 'left')
+
 
 # last_purchase (days)
 l_purchase = df_purchase.groupby('customer_id').max()['invoice_date'].reset_index() 
 l_purchase['last_purchase'] = (df_purchase.invoice_date.max() - l_purchase.invoice_date).dt.days
+
+df_cli = pd.merge(df_cli, l_purchase[['customer_id', 'last_purchase']], on = 'customer_id', how = 'left')
 
 
 # number of orders
 orders = df_purchase.groupby('customer_id').invoice_no.nunique().reset_index()
 orders.columns = ['customer_id', 'orders']
 
+df_cli = pd.merge(df_cli, orders, on = 'customer_id', how = 'left')
+
 
 # Qt of products purchases
 qt_products = (df_purchase[['customer_id', 'stock_code']].groupby( 'customer_id' ).count()
                                                            .reset_index()
                                                            .rename( columns={'stock_code': 'qt_products'} ) )
+df_cli = pd.merge( df_cli, qt_products, on='customer_id', how='left' )
 
 
 # total items purchases
 total_items = (df_purchase[['customer_id', 'quantity']].groupby( 'customer_id' ).sum()
                                                            .reset_index()
                                                            .rename( columns={'quantity': 'qt_items'} ) )
+df_cli = pd.merge( df_cli, total_items, on='customer_id', how='left' )
 
 
 # frequency of purchases
@@ -172,23 +186,20 @@ total_items = (df_purchase[['customer_id', 'quantity']].groupby( 'customer_id' )
 df_aux['frequency'] = df_aux[['buy_', 'days_']].apply( lambda x: x['buy_'] / x['days_'] if  x['days_'] != 0 else 0, axis=1 )
 freq = df_aux[['customer_id', 'frequency']]
 
+df_cli = pd.merge( df_cli, freq, on='customer_id', how='left' )
 
-# merging into client df and creating features
-df_cli = pd.merge(df_cli, gross_revenue, on = 'customer_id', how = 'left')
-df_cli = pd.merge(df_cli, returned_revenue, on = 'customer_id', how = 'left')
-df_cli = pd.merge(df_cli, basket_size, on = 'customer_id', how = 'left')
-df_cli = pd.merge(df_cli, unique_basket_size, on = 'customer_id', how = 'left')
-df_cli['last_purchase'] = pd.merge(df_cli, l_purchase, on = 'customer_id', how = 'left')['last_purchase']
-df_cli = pd.merge(df_cli, orders, on = 'customer_id', how = 'left')
-df_ref = pd.merge( df_cli, qt_products, on='customer_id', how='left' )
-df_ref = pd.merge( df_cli, total_items, on='customer_id', how='left' )
-df_ref = pd.merge( df_cli, freq, on='customer_id', how='left' )
-df_cli = pd.merge(df_cli, df_avg_recency_days, on = 'customer_id', how = 'left')
-df_cli['average_ticket'] = df_cli.gross_revenue/df_cli.frequency
+
+# creating final column in client df
+df_cli['average_ticket'] = df_cli.gross_revenue/df_cli.orders
+
 
 # checking and filling nas in new df with 0
 df_cli.isna().sum()
 df_cli = df_cli.fillna(0)
+
+
+
+## Exporting to csv
 
 # saving df
 df_cli.to_csv(os.path.join(FT_DIR, 'ft_df.csv'), index = False)
