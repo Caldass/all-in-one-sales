@@ -176,7 +176,7 @@ df_cli = pd.merge( df_cli, total_items, on='customer_id', how='left' )
 
 
 # frequency of purchases
- df_aux = ( df_purchase[['customer_id', 'invoice_no', 'invoice_date']].drop_duplicates()
+df_aux = ( df_purchase[['customer_id', 'invoice_no', 'invoice_date']].drop_duplicates()
                                                              .groupby( 'customer_id')
                                                              .agg( max_ = ( 'invoice_date', 'max' ), 
                                                                    min_ = ( 'invoice_date', 'min' ),
