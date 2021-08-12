@@ -85,10 +85,10 @@ stats
 df = df[~cat_attrs.stock_code.apply(lambda x: bool(re.search('^[a-zA-Z]+$', x)) )]
 
 # removing price equal to 0
-df = df[df.unit_price > 0]
+df = df[df['unit_price'] >= 0.04]
 
 # creating revenue and return dataframe
-df_purchase = df[df.quantity > 0]
+df_purchase = df[df.quantity >= 0]
 df_returns = df[df.quantity < 0]
 
 # removing countries not identified and description column
@@ -103,7 +103,7 @@ df.drop(columns = 'description', inplace = True)
 df_cli = df[['customer_id']].drop_duplicates(ignore_index = True)
 
  # avg recency days
-df_aux = df_purchase[['customer_id', 'invoice_date']].drop_duplicates().sort_values( ['customer_id', 'invoice_date'], ascending=['False', 'False'] )
+df_aux = df[['customer_id', 'invoice_date']].drop_duplicates().sort_values( ['customer_id', 'invoice_date'], ascending=['False', 'False'] )
 df_aux['next_customer_id'] = df_aux['customer_id'].shift() # next customer
 df_aux['previous_date'] = df_aux['invoice_date'].shift() # next invoice date
 df_aux['avg_recency_days'] = df_aux.apply( lambda x: ( x['invoice_date'] - x['previous_date'] ).days if x['customer_id'] == x['next_customer_id'] else np.nan, axis=1 )
@@ -141,10 +141,19 @@ df_cli = pd.merge(df_cli, unique_basket_size, on = 'customer_id', how = 'left')
 df_purchase['gross_revenue'] = df_purchase.unit_price * df_purchase.quantity
 df_returns['returned_revenue'] = df_returns.unit_price * abs(df_returns.quantity)
 gross_revenue = df_purchase.groupby('customer_id').sum()['gross_revenue'].reset_index()
-returned_revenue = df_returns.groupby('customer_id').sum()['returned_revenue'].reset_index()
+#returned_revenue = df_returns.groupby('customer_id').sum()['returned_revenue'].reset_index()
+
 
 df_cli = pd.merge(df_cli, gross_revenue, on = 'customer_id', how = 'left')
-df_cli = pd.merge(df_cli, returned_revenue, on = 'customer_id', how = 'left')
+#df_cli = pd.merge(df_cli, returned_revenue, on = 'customer_id', how = 'left')
+
+
+# Number of Returns
+df_returns = df_returns[['customer_id', 'quantity']].groupby( 'customer_id' ).sum().reset_index().rename( columns={'quantity':'qt_returns'} )
+df_returns['qt_returns'] = df_returns['qt_returns'] * -1
+
+df_cli = pd.merge( df_cli, df_returns, how='left', on='customer_id' )
+df_cli.loc[df_cli['qt_returns'].isna(), 'qt_returns'] = 0
 
 
 # last_purchase (days)
@@ -195,7 +204,7 @@ df_cli['average_ticket'] = df_cli.gross_revenue/df_cli.orders
 
 # checking and filling nas in new df with 0
 df_cli.isna().sum()
-df_cli = df_cli.fillna(0)
+#df_cli = df_cli.fillna(0)
 
 
 
