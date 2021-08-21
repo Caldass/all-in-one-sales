@@ -95,6 +95,9 @@ df_returns = df[df.quantity < 0]
 df = df[~df['country'].isin( ['European Community', 'Unspecified' ] ) ]
 df.drop(columns = 'description', inplace = True)
 
+# removing bad users 
+df = df[~df.customer_id.isin( [16446] )]
+
 
 
 ## Feature Engineering
@@ -212,3 +215,4 @@ df_cli.isna().sum()
 
 # saving df
 df_cli.to_csv(os.path.join(FT_DIR, 'ft_df.csv'), index = False)
+df.to_csv(os.path.join(FT_DIR, 'full_df.csv'), index = False)
