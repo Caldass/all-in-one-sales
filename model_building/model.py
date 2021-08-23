@@ -15,8 +15,8 @@ DATA_DIR = os.path.join(BASE_DIR, 'feature_eng', 'data', 'ft_df.csv')
 # MODEL_DIR = os.path.join(BASE_DIR, 'heroku', 'models')
 
 df = pd.read_csv(DATA_DIR)
-df.drop(columns = ['customer_id', 'mix'], inplace = True)
-
+df.drop(columns = ['customer_id'], inplace = True)
+df = df.dropna()
 
 
 ## Hyperparameter fine tuning
