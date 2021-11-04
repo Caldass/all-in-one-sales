@@ -1,0 +1,11 @@
+.vscode
+*.csv
+*.db
+*.xls
+*.xlsx
+*.sqlite
+*.pyc
+__pycache__
+_pycache_
+*.pkl
+*.ipynb_checkpoints
