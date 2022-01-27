@@ -7,6 +7,7 @@
 ## Code and Resources Used
 **Python version:** 3.8.12 <br />
 **Packages:** Pandas, Pandas Profilling, Numpy, UMAP, Sklearn, Pickle, Seaborn, Matplotlib, Yellowbrick, Scipy, SQLAlchemy, s3fs. <br />
+**Data:** https://github.com/provezano/UK-High-Value-Customers-Identification/blob/main/data/Ecommerce.csv
 
 ## The company All In One Place
 The company All in One Place is a Multibrand Outlet company, that is, it sells second-line products of several brands at a lower price, through an e-commerce.
@@ -55,7 +56,7 @@ After exploring the data, the following features were chosen to be used in the c
 - qt_products
 - qt_returns
 
-## Machine Learning Modelling
+## Machine Learning Modeling
 I transformed the data into a two dimensional space using a Tree Based Embedding using the Random Forest algorithm and the UMAP Transformer, since having an explainable model wasn't needed in this particular project:
 ![alt text](https://github.com/Caldass/all-in-one-sales/blob/master/img/tree_embedding.png "Embedding")
 
@@ -77,8 +78,10 @@ As a result of this project, it was expected to submit a list of people eligible
 1. Who are the people eligible to participate in the Insiders program?
 - The people inside the cluster 4 (insiders).
 
+
 2. How many customers will be part of the group?
 - 468 people.
+
 
 3. What are the main characteristics of these customers?
 - Top revenue.
@@ -88,22 +91,25 @@ As a result of this project, it was expected to submit a list of people eligible
 - Highest number of returns.
 - Represent a big chunk of the client base.
 
+
 4. What is the percentage of revenue contribution, coming from Insiders?
 - 51.72%
+
 
 5. What are the conditions for a person to be eligible for Insiders?
 - The model created decides who's eligible.
 
+
 6. What are the conditions for a person to be removed from Insiders?
 - The model created decides who should be removed.
+
 
 7. What is the guarantee that the Insiders program is better than the rest of the base?
 - There's no guarantee at first, we could run an AB test to make shure that the insiders cluster performs better than the other clusters. Then, we could separate a A amount of clients from the insiders cluster and a B amount of clients from the other clusters for a specific amount of time and perform an AB testing.
 
-8. What actions can the marketing team take to increase revenue?
-- Thinking about the insiders group, which will be the focused group in the insiders project, one could suggest the marketing team to create a VIP type service for the insiders group, this way, avoiding those clients to end up in other clusters and loosing the characteristics that fit them in the insiders cluster.
 
-If we think about the other clusters, one could suggest the marketing team to take one of the clusters and try to analyze what they could do to boost those clients into better groups or even improve that group itself. For example using cluster number 2 which contains the biggest chunk of clients of the whole base, and trying to make those clients buy more products could result in a revenue increase. Maybe one could suggest the marketing team to create a sort of cross sell strategy with those clients.
+8. What actions can the marketing team take to increase revenue?
+- Thinking about the insiders group, which will be the focused group in the insiders project, one could suggest the marketing team to create a VIP type service for the insiders group, this way, avoiding those clients to end up in other clusters and loosing the characteristics that fit them in the insiders cluster. If we think about the other clusters, one could suggest the marketing team to take one of the clusters and try to analyze what they could do to boost those clients into better groups or even improve that group itself. For example using cluster number 2 which contains the biggest chunk of clients of the whole base, and trying to make those clients buy more products could result in a revenue increase. Maybe one could suggest the marketing team to create a sort of cross sell strategy with those clients.
 
 ### Top 3 Data Insights
 
@@ -117,17 +123,18 @@ False. The insiders cluster has an avg return amount of 149.27, while the avg. t
 True. The median gross revenue of the insiders cluster is only 276.48 % higher than all the median gross revenue.
 
 
-## Deploy Model to Production
+## Deploying Model to Production
 In this step, I automated the process of predicting new customers clusters using Amazon Web Services RDS, EC2 and Storage services. 
 
 Through S3, I was able to store the initial data that would be consumed throughout the other steps performed in the cloud project.
 
 Through RDS, I was able to create a MySQL database in order to keep historical and current data regarding the e-commerce's customers. 
 
-Through EC2, I was able to create an Ubuntu server in which I used papermill and cronjob in order to periodically execute the transformation and modeling regarding the customers of the e-commerce, then, the output of the modelling would be inserted into the MySQL(RDS) database.
+Through EC2, I was able to create an Ubuntu server in which I used papermill and cronjob in order to periodically execute the transformation and modeling regarding the customers of the e-commerce, then, the output of the modeling would be inserted into the MySQL(RDS) database.
 
 The output of the full process would be through a visualization tool such as Tableau or Metabase which would allow one to consume, present and analyze the data from the MySQL database.
 
 Here's a glance at the full schema created in this process:
+
 ![alt text](https://github.com/Caldass/all-in-one-sales/blob/master/img/deploy.png "Deploy Structure")
 
